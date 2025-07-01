@@ -1,3 +1,5 @@
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
 #!/bin/bash
 # Author: TheElectronWill
 # This script downloads the latest version of Discord for linux, and creates a package with rpmbuild.
@@ -14,6 +16,12 @@ downloaded_dir="$work_dir/discord"
 desktop_model="$PWD/discord.desktop"
 spec_file="$PWD/discord.spec"
 arch='x86_64'
+app_name='Discord'
+exe_name='Discord'
+pkg_name='discord'
+download_url='https://discordapp.com/api/download'
+cut_part=2
+desktop_file="$work_dir/discord.desktop"
 
 # Settings according to the distribution
 if [[ $distrib == "redhat" ]]; then
@@ -23,74 +31,38 @@ elif [[ $distrib == "suse" ]]; then
 else
 	disp "${red}Sorry, your distribution isn't supported (yet).$reset"
 	exit 1
-fi	
-
-# Checks that the version (stable/ptb/canary) is given as a parameter.
-if [[ $# -ne 1 || $1 != "stable" && $1 != "ptb" && $1 != "canary" && $1 != "development" ]]; then
-	disp "${red}Wrong or missing parameters!$reset"
-	echo 'Usage: create-package.sh [ stable | ptb | canary | development ]'
-	exit 1
-fi
-
-# Settings according to the discord type (canary or stable)
-if [[ $1 == "canary" ]]; then
-	app_name='Discord Canary'
-	exe_name='DiscordCanary'
-	pkg_name='discord-canary'
-	download_url='https://discordapp.com/api/download/canary'
-	cut_part=3
-	desktop_file="$work_dir/discord-canary.desktop"
-elif [[ $1 == "ptb" ]]; then
-	app_name='Discord PTB'
-	exe_name='DiscordPTB'
-	pkg_name='discord-ptb'
-	download_url='https://discordapp.com/api/download/ptb'
-	cut_part=3
-	desktop_file="$work_dir/discord-ptb.desktop"
-elif [[ $1 == "development" ]]; then
-        app_name='Discord Development'
-        exe_name='DiscordDevelopment'
-        pkg_name='discord-development'
-        download_url='https://discordapp.com/api/download/development'
-        cut_part=3
-        desktop_file="$work_dir/discord-development.desktop"
-else
-	app_name='Discord'
-	exe_name='Discord'
-	pkg_name='discord'
-	download_url='https://discordapp.com/api/download'
-	cut_part=2
-	desktop_file="$work_dir/discord.desktop"
 fi
 
 # Downloads the discord tar.gz archive and puts its name in the global variable archive_name.
 download_discord() {
-	echo "Downloading $app_name for linux..."
+  current_version=$(rpm -q discord | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+  echo "Current version: $current_version"
+
+	echo "Fetching the latest version..."
 	archive_url=$(curl -is --write-out "%{redirect_url}\n"  "${download_url}?platform=linux&format=tar.gz" -o /dev/null)
-	wget --content-disposition $wget_progress "${archive_url}"
+	archive_version=$(echo $archive_url | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+	echo "Archive version: $archive_version"
+
+	if [ "$archive_version" == "$current_version" ]; then
+    echo "Latest version already installed."
+    exit
+  fi
+
+  # Download the latest version
+  echo "Downloading $app_name for linux..."
+  wget --content-disposition $wget_progress "${archive_url}"
 	archive_name="$(ls *.tar.gz)"
 }
 
+echo "Discord Updater for $distrib, credits to TheElectronWill"
+download_discord
 manage_dir "$work_dir" 'work'
 manage_dir "$rpm_dir" 'RPMs'
 cd "$work_dir"
 
 # Downloads discord if needed.
 archive_name="$(ls *.tar.gz 2>/dev/null)"
-if [ $? -eq 0 ]; then
-	echo "Found the archive \"$archive_name\"."
-	ask_yesno 'Use this archive instead of downloading a new one?'
-	case "$answer" in
-		y|Y)
-			echo 'Existing archive selected.'
-			;;
-		*)
-			rm "$archive_name"
-			download_discord
-	esac
-else
-	download_discord
-fi
+rm "$archive_name"
 
 # Extracts the archive:
 echo
@@ -126,5 +98,5 @@ disp "${bgreen}Done!${reset_font}"
 disp "The RPM package is located in the \"RPMs/$arch\" directory."
 disp '----------------'
 
-ask_remove_dir "$work_dir"
-ask_installpkg
+remove_dir "$work_dir"
+installpkg

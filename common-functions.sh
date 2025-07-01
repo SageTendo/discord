@@ -29,67 +29,37 @@ fi
 # Initializes $wget_progress: detects if the option --show-progress is available
 wget --help | grep -q '\--show-progress' && wget_progress="-q --show-progress" || wget_progress=""
 
-# ask_yesno question
-## Asks a yes/no question and stores the result in the 'answer' variable
-ask_yesno() {
-	style $reset$bold
-	read -n 1 -p "> $1 [y/N]: " answer
-	echo
-	style $reset
-}
-
-# ask_remove_dir directory
-## Asks the user if they want to remove the specified directory, and removes it if they want to.
-ask_remove_dir() {
-	ask_yesno "Remove the directory \"$1\"?"
-	case "$answer" in
-		y|Y)
-			rm -r "$1"
-			echo "Directory removed."		
-			;;
-		*)
-			echo "Directory not removed."
-	esac
-	echo
+# remove_dir directory
+## Remove the specified directory
+remove_dir() {
+		rm -r "$1"
+		echo "Directory removed."
 }
 
 # manage_dir directory directory_short_name
-## If the specified directory exists, asks the user if they want to remove it.
-## If it doesn't exist, creates it.
+## Removes the specified directory if it exists.
 manage_dir() {
-	if [ -d "$1" ]; then
-		echo "The $2 directory already exist and may contain outdated data."
-		ask_remove_dir "$1"
-	fi
+	echo "The $2 directory already exists."
+	remove_dir "$1"
 	mkdir -p "$1"
 }
 
-# ask_installpkg [all]
-## Asks the user if they want to install the newly created package.
-ask_installpkg() {
-	if [[ $1 == "all" || $2 == "all" ]]; then
-		pl='es'
+# installpkg [all]
+## Install the newly created package.
+installpkg() {
+	cd "$rpm_dir/$arch"
+	if [[ $1 == "all" ]]; then
+		rpm_filename=$(find -type f -name '*.rpm' -printf '%P\n')
 	else
-		pl='e'
+		rpm_filename=$(find -maxdepth 1 -type f -name '*.rpm' -printf '%P\n' -quit)
 	fi
-	ask_yesno "Install the packag$pl now?"
-	case "$answer" in
-		y|Y)
-			cd "$rpm_dir/$arch"
-			if [[ $1 == "all" ]]; then
-				rpm_filename=$(find -type f -name '*.rpm' -printf '%P\n')
-			else
-				rpm_filename=$(find -maxdepth 1 -type f -name '*.rpm' -printf '%P\n' -quit)
-			fi
-			sudo_install $rpm_filename
-			;;
-		*)
-			echo "Packag$pl not installed."
-	esac
+	sudo_install $rpm_filename
 }
 
 # sudo_install pkg [options]
 sudo_install() {
+  current_version=$(rpm -q discord)
+  sudo dnf remove "$current_version" -y
 	sudo $installer "$@"
 }
 
