@@ -1,6 +1,7 @@
-export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
 #!/bin/bash
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+set -euo pipefail  # exit on error, unset vars fail, and pipefail
+
 # Author: TheElectronWill
 # This script downloads the latest version of Discord for linux, and creates a package with rpmbuild.
 
@@ -35,8 +36,8 @@ fi
 
 # Downloads the discord tar.gz archive and puts its name in the global variable archive_name.
 download_discord() {
-  current_version=$(rpm -q discord | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-  echo "Current version: $current_version"
+	current_version=$(rpm -q discord | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+	echo "Current version: $current_version"
 
 	echo "Fetching the latest version..."
 	archive_url=$(curl -is --write-out "%{redirect_url}\n"  "${download_url}?platform=linux&format=tar.gz" -o /dev/null)
@@ -44,8 +45,8 @@ download_discord() {
 	echo "Archive version: $archive_version"
 
 	if [ "$archive_version" == "$current_version" ]; then
-    echo "Latest version already installed."
-    exit
+		echo "Latest version already installed."
+	exit
   fi
 
   # Download the latest version
@@ -55,14 +56,16 @@ download_discord() {
 }
 
 echo "Discord Updater for $distrib, credits to TheElectronWill"
-download_discord
 manage_dir "$work_dir" 'work'
 manage_dir "$rpm_dir" 'RPMs'
 cd "$work_dir"
 
 # Downloads discord if needed.
-archive_name="$(ls *.tar.gz 2>/dev/null)"
-rm "$archive_name"
+archive_name="$(ls *.tar.gz 2>/dev/null || true)"
+if [[ -n "$archive_name" ]]; then
+  rm "$archive_name"
+fi
+download_discord
 
 # Extracts the archive:
 echo

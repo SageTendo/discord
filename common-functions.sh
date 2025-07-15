@@ -32,8 +32,12 @@ wget --help | grep -q '\--show-progress' && wget_progress="-q --show-progress" |
 # remove_dir directory
 ## Remove the specified directory
 remove_dir() {
+	if [[ -d "$1" ]]; then
 		rm -r "$1"
 		echo "Directory removed."
+	 else
+		echo "Directory $1 does not exist, skipping removal."
+fi
 }
 
 # manage_dir directory directory_short_name
@@ -48,28 +52,30 @@ manage_dir() {
 ## Install the newly created package.
 installpkg() {
 	cd "$rpm_dir/$arch"
-	if [[ $1 == "all" ]]; then
+	
+	local arg="${1:-}"  # default empty string if $1 unset
+	
+	if [[ "$arg" == "all" ]]; then
 		rpm_filename=$(find -type f -name '*.rpm' -printf '%P\n')
 	else
 		rpm_filename=$(find -maxdepth 1 -type f -name '*.rpm' -printf '%P\n' -quit)
 	fi
-	sudo_install $rpm_filename
+
+	sudo_install "$PWD/$rpm_filename" -y
 }
 
 # sudo_install pkg [options]
 sudo_install() {
-  current_version=$(rpm -q discord)
-  sudo dnf remove "$current_version" -y
-	sudo $installer "$@"
-}
+  if rpm -q discord >/dev/null 2>&1; then
+    current_version=$(rpm -q discord)
+    echo "Removing current Discord package: $current_version"
+    sudo dnf remove -y discord || { echo "Failed to remove current package"; return 1; }
+  else
+    echo "Discord package not installed, skipping removal."
+  fi
 
-# sudo_install_prompt prompt pkg [options]
-sudo_install_prompt() {
-	if [[ $# -eq 2 ]]; then
-		sudo -p "$1" $installer "$2"
-	else
-		sudo -p "$1" $installer "$2" $3
-	fi
+  echo "Installing package(s): $*"
+  sudo $installer "$@" || { echo "Failed to install package(s)"; return 1; }
 }
 
 # extract archive_file destination [option1 [option2]]
